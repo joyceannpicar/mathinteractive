@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Group Quiz Prototype</title>
+<title>Single Device Group Quiz</title>
 <style>
-  body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+  body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
   h1 { text-align: center; }
-  .setup, .quiz, .tally { margin: 20px auto; max-width: 700px; padding: 20px; background: #fff; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
-  input[type=text], input[type=number] { padding: 8px; margin: 5px 0; width: 100%; }
-  button { padding: 10px 20px; margin-top: 10px; border: none; background: #1976d2; color: white; border-radius: 5px; cursor: pointer; }
+  .setup, .quiz, .tally { max-width: 700px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); }
+  input[type=text], input[type=number] { width: 100%; padding: 8px; margin: 5px 0; }
+  button { padding: 10px 20px; margin: 5px 0; border: none; border-radius: 5px; background: #1976d2; color: white; cursor: pointer; }
+  button.locked { background: #ccc; cursor: not-allowed; }
+  .member-btn { display: inline-block; margin: 5px; }
   table { width: 100%; border-collapse: collapse; margin-top: 15px; }
   th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
   th { background: #1976d2; color: white; }
@@ -19,24 +21,25 @@
 
 <div class="setup">
   <h1>Group Setup</h1>
-  <label>Number of Groups:</label>
-  <input type="number" id="numGroups" min="1" value="4">
-  <label>Number of Members per Group:</label>
-  <input type="number" id="membersPerGroup" min="1" value="3">
-  <button onclick="createGroups()">Create Groups</button>
-  <div id="groupInputs"></div>
+  <label>Group Number:</label>
+  <input type="number" id="groupNumber" min="1" value="1">
+  <label>Number of Members:</label>
+  <input type="number" id="numMembers" min="1" value="3">
+  <button onclick="createMemberInputs()">Create Members</button>
+  <div id="memberInputs"></div>
 </div>
 
 <div class="quiz" style="display:none;">
   <h1>Quiz Question</h1>
   <p id="questionText">What is 2 + 2?</p>
-  <label>Group Number:</label>
-  <input type="number" id="currentGroup" min="1">
-  <label>Member Name:</label>
-  <input type="text" id="currentMember">
-  <label>Answer:</label>
-  <input type="text" id="currentAnswer">
-  <button onclick="submitAnswer()">Submit Answer</button>
+  <p><strong>Who is answering now?</strong></p>
+  <div id="memberButtons"></div>
+
+  <div id="answerSection" style="display:none;">
+    <label>Answer:</label>
+    <input type="text" id="currentAnswer">
+    <button onclick="submitAnswer()">Submit Answer</button>
+  </div>
 </div>
 
 <div class="tally" style="display:none;">
@@ -50,90 +53,87 @@
 </div>
 
 <script>
-let groups = [];
-let membersPerGroup = 3;
+let groupNumber;
+let members = [];
+let currentMember = null;
 
-// Step 1: Create group input fields
-function createGroups() {
-  const numGroups = parseInt(document.getElementById('numGroups').value);
-  membersPerGroup = parseInt(document.getElementById('membersPerGroup').value);
-  groups = [];
-
-  let container = document.getElementById('groupInputs');
+// Step 1: Create member input fields
+function createMemberInputs(){
+  groupNumber = parseInt(document.getElementById('groupNumber').value);
+  const numMembers = parseInt(document.getElementById('numMembers').value);
+  let container = document.getElementById('memberInputs');
   container.innerHTML = '';
-  for(let g = 1; g <= numGroups; g++){
-    container.innerHTML += `<h3>Group ${g}</h3>`;
-    groups[g-1] = [];
-    for(let m = 0; m < membersPerGroup; m++){
-      container.innerHTML += `<input type="text" placeholder="Member ${m+1} Name" id="group${g}member${m}"><br>`;
-    }
+  members = [];
+  for(let i=0; i<numMembers; i++){
+    container.innerHTML += `<input type="text" placeholder="Member ${i+1} Name" id="member${i}"><br>`;
   }
-  container.innerHTML += `<button onclick="saveGroups()">Save Groups</button>`;
+  container.innerHTML += `<button onclick="saveMembers()">Save Members</button>`;
 }
 
 // Step 2: Save member names
-function saveGroups() {
-  for(let g = 0; g < groups.length; g++){
-    for(let m = 0; m < membersPerGroup; m++){
-      const name = document.getElementById(`group${g+1}member${m}`).value || `Member${m+1}`;
-      groups[g][m] = {name: name, answer: '', correct: 0};
-    }
+function saveMembers(){
+  const numMembers = parseInt(document.getElementById('numMembers').value);
+  members = [];
+  for(let i=0; i<numMembers; i++){
+    const name = document.getElementById(`member${i}`).value || `Member${i+1}`;
+    members.push({name: name, answer: null});
   }
   document.querySelector('.setup').style.display = 'none';
   document.querySelector('.quiz').style.display = 'block';
   document.querySelector('.tally').style.display = 'block';
+  renderMemberButtons();
   renderTallyBoard();
 }
 
-// Step 3: Submit answer
-function submitAnswer() {
-  const groupNum = parseInt(document.getElementById('currentGroup').value) - 1;
-  const memberName = document.getElementById('currentMember').value;
+// Step 3: Render member buttons
+function renderMemberButtons(){
+  const container = document.getElementById('memberButtons');
+  container.innerHTML = '';
+  members.forEach((m, idx) => {
+    const btn = document.createElement('button');
+    btn.textContent = m.name;
+    btn.className = 'member-btn';
+    if(m.answer !== null){
+      btn.classList.add('locked');
+      btn.disabled = true;
+    }
+    btn.onclick = () => selectMember(idx);
+    container.appendChild(btn);
+  });
+}
+
+// Step 4: Select member to answer
+function selectMember(idx){
+  currentMember = idx;
+  document.getElementById('answerSection').style.display = 'block';
+  document.getElementById('currentAnswer').focus();
+}
+
+// Step 5: Submit answer
+function submitAnswer(){
+  if(currentMember === null) return;
   const answer = document.getElementById('currentAnswer').value.trim();
-
-  if(groupNum < 0 || groupNum >= groups.length){
-    alert("Invalid group number");
-    return;
-  }
-
-  // Find member by name
-  const member = groups[groupNum].find(m => m.name === memberName);
-  if(!member){
-    alert("Member not found in this group");
-    return;
-  }
-
-  member.answer = answer;
-  if(answer === "4"){ // simple correct answer check
-    member.correct = 1;
-  } else {
-    member.correct = 0;
-  }
-
-  renderTallyBoard();
-  document.getElementById('currentMember').value = '';
+  if(answer === '') return alert("Please enter an answer");
+  members[currentMember].answer = answer;
+  currentMember = null;
+  document.getElementById('answerSection').style.display = 'none';
   document.getElementById('currentAnswer').value = '';
+  renderMemberButtons();
+  renderTallyBoard();
 }
 
-// Step 4: Render tally board
-function renderTallyBoard() {
+// Step 6: Render tally board
+function renderTallyBoard(){
   const header = document.getElementById('tallyHeader');
   const body = document.getElementById('tallyBody');
-  header.innerHTML = '<th>Group</th>';
-  for(let i = 1; i <= membersPerGroup; i++){
-    header.innerHTML += `<th>Member ${i}</th>`;
-  }
-  header.innerHTML += `<th>Correct Count</th>`;
-
+  header.innerHTML = '<th>Member</th><th>Answer</th>';
   body.innerHTML = '';
-  groups.forEach((group, idx) => {
-    let row = `<tr><td>${idx+1}</td>`;
-    let correctCount = 0;
-    group.forEach(member => {
-      row += `<td class="${member.correct ? 'correct' : ''}">${member.answer}</td>`;
-      correctCount += member.correct;
-    });
-    row += `<td>${correctCount}</td></tr>`;
+  members.forEach(m => {
+    const correct = m.answer === "4"; // hardcoded correct answer
+    const row = `<tr>
+      <td>${m.name}</td>
+      <td class="${correct ? 'correct' : ''}">${m.answer || ''}</td>
+    </tr>`;
     body.innerHTML += row;
   });
 }
