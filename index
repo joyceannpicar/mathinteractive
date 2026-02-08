@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Math Interactive Quiz</title>
+
+  <!-- MathJax -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      startup: { typeset: false }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .card {
+      background: white;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .choice {
+      display: block;
+      margin: 10px 0;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+
+    .choice:hover {
+      background: #e3f2fd;
+    }
+
+    button {
+      margin-top: 15px;
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #1976d2;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="card">
+    <h1>Math Quiz</h1>
+
+    <p id="question">
+      What is the value of $\\sin 30^\\circ$?
+    </p>
+
+    <div class="choice" onclick="selectAnswer(0)">A. $0$</div>
+    <div class="choice" onclick="selectAnswer(1)">B. $\\frac{1}{2}$</div>
+    <div class="choice" onclick="selectAnswer(2)">C. $1$</div>
+    <div class="choice" onclick="selectAnswer(3)">D. $\\sqrt{3}$</div>
+
+    <button onclick="submitAnswer()">Submit</button>
+
+    <p id="result"></p>
+  </div>
+
+  <script>
+    MathJax.startup.promise.then(() => {
+      MathJax.typeset();
+    });
+
+    let selected = -1;
+    const correctAnswer = 1;
+
+    function selectAnswer(index) {
+      selected = index;
+      document.querySelectorAll('.choice').forEach((c, i) => {
+        c.style.background = i === index ? '#bbdefb' : 'white';
+      });
+    }
+
+    function submitAnswer() {
+      if (selected === -1) {
+        alert("Please select an answer.");
+        return;
+      }
+
+      document.getElementById("result").innerHTML =
+        selected === correctAnswer
+          ? "✅ Correct!"
+          : "❌ Incorrect. Try again.";
+    }
+  </script>
+</body>
+</html>
